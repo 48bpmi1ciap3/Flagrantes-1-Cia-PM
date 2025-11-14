@@ -353,6 +353,7 @@
                         <p class="text-sm font-medium opacity-80">${card.title}</p>
                         <p class="text-3xl font-bold">${card.value}</p>
                     </div>
+                    <!-- Icone SVG de ${card.icon} -->
                     <svg class="w-8 h-8 opacity-75" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         ${getIconSvg(card.icon)}
                     </svg>
@@ -394,19 +395,23 @@
                 // Alternating row background color for readability
                 row.className = index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
                 
-                // Determine color for the 'Flagrante' column
-                const flagranteClass = record.flagrante === 'SIM' ? 'text-green-600 font-semibold' : 'text-red-500';
+                const isFlagrante = record.flagrante === 'SIM';
                 
                 row.innerHTML = `
                     <td class="px-6 py-4 text-sm font-medium text-gray-900">${record.data}</td>
-                    <td class="px-6 py-4 text-sm text-gray-700">${record.natureza}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700 font-semibold">${record.natureza}</td>
                     <td class="px-6 py-4 text-sm text-gray-700">${record.cidade}</td>
-                    <td class="px-6 py-4 text-sm ${flagranteClass}">${record.flagrante}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <!-- Badge para Flagrante (cores verde/vermelho) -->
+                        <span class="px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${isFlagrante ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${record.flagrante}
+                        </span>
+                    </td>
                     <td class="px-6 py-4 text-sm text-gray-700">${record.equipe}</td>
                     <td class="px-6 py-4 text-sm text-gray-700">${record.policiais}</td>
-                    <td class="px-6 py-4 text-sm text-center text-gray-700">${record.pessoasPresas}</td>
+                    <td class="px-6 py-4 text-sm text-center font-bold text-gray-700">${record.pessoasPresas}</td>
                     <td class="px-6 py-4 text-sm text-gray-700">${record.indiciado}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${record.observacao}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">${record.observacao}</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -450,12 +455,16 @@
             // 3. Initial Render
             updateDashboard();
             
-            // Hide loading and show app
-            document.getElementById('loading-overlay').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('loading-overlay').classList.add('hidden');
-                document.getElementById('app-container').style.opacity = '1';
-            }, 300);
+            // 4. CORREÇÃO DE VISUALIZAÇÃO: Esconde o overlay de carregamento e torna o app visível
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const appContainer = document.getElementById('app-container');
+            
+            // Torna o container principal visível (fade-in)
+            appContainer.classList.remove('opacity-0');
+            appContainer.classList.add('opacity-100'); 
+            
+            // Esconde o overlay de carregamento imediatamente
+            loadingOverlay.classList.add('hidden');
         }
 
         // Start initialization
