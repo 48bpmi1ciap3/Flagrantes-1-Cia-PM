@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Ocorrências Policiais</title>
+    <!-- Carrega Tailwind CSS para estilização rápida e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração de Fonte -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Estilos de Cartões de Resumo */
+        .summary-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        /* Estilo para a barra de rolagem da tabela em telas menores */
+        .scroll-table {
+            overflow-x: auto;
+        }
+        /* Estilo para a tabela */
+        th, td {
+            white-space: nowrap; /* Impede que o texto quebre dentro da célula */
+            padding: 0.75rem 1rem;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto opacity-0 transition-opacity duration-500" id="app-container">
+        
+        <!-- Título Principal -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Dashboard de Ocorrências <span class="text-indigo-600">1ª CIA</span></h1>
+            <p class="text-gray-500">Filtre e visualize os casos de flagrantes por natureza, equipe, policial e cidade.</p>
+        </header>
+
+        <!-- Cartões de Resumo (KPIs) -->
+        <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <!-- Os cartões serão preenchidos via JavaScript -->
+        </div>
+
+        <!-- Área de Filtros -->
+        <div class="bg-white p-6 rounded-xl summary-card mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Opções de Filtro</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                
+                <!-- Filtro por Natureza -->
+                <div class="flex flex-col">
+                    <label for="filter-natureza" class="text-sm font-medium text-gray-600 mb-1">Natureza</label>
+                    <select id="filter-natureza" class="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        <option value="">Todas as Naturezas</option>
+                    </select>
+                </div>
+
+                <!-- Filtro por Equipe -->
+                <div class="flex flex-col">
+                    <label for="filter-equipe" class="text-sm font-medium text-gray-600 mb-1">Equipe</label>
+                    <select id="filter-equipe" class="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        <option value="">Todas as Equipes</option>
+                    </select>
+                </div>
+
+                <!-- Filtro por Policial -->
+                <div class="flex flex-col">
+                    <label for="filter-policial" class="text-sm font-medium text-gray-600 mb-1">Policial</label>
+                    <select id="filter-policial" class="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        <option value="">Todos os Policiais</option>
+                    </select>
+                </div>
+                
+                <!-- Filtro por Cidade -->
+                <div class="flex flex-col">
+                    <label for="filter-cidade" class="text-sm font-medium text-gray-600 mb-1">Cidade</label>
+                    <select id="filter-cidade" class="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                        <option value="">Todas as Cidades</option>
+                    </select>
+                </div>
+
+            </div>
+            
+            <div class="mt-4 flex justify-end">
+                <button id="reset-filters" class="px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition duration-150 shadow-md">
+                    Limpar Filtros
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabela de Resultados -->
+        <div class="bg-white p-6 rounded-xl summary-card">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4 flex justify-between items-center">
+                Casos Filtrados
+                <span id="result-count" class="text-sm font-medium text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full"></span>
+            </h2>
+            
+            <div class="scroll-table border border-gray-200 rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Data</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Natureza</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cidade</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Flagrante</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Equipe</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Policiais</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Presos</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Indiciado</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Linhas de resultado serão inseridas aqui pelo JS -->
+                    </tbody>
+                </table>
+                <div id="no-results" class="hidden text-center p-8 text-gray-500">
+                    Nenhum resultado encontrado para os filtros aplicados.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Variáveis globais obrigatórias para o ambiente Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Importações e inicialização Firebase (Obrigatório, mesmo que não seja usado para persistência de dados nesta demo)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let db = null;
+        let auth = null;
+        let userId = null;
+
+        // Dados brutos da planilha do usuário
+        const rawDataInput = `
+            DATA	NATUREZA	HORA	LOCAL	CIDADE	BOPM	BOPC	FLAGRANTE	EQUIPE	POLICIAIS (1)	POLICIAIS (2)	POLICIAIS (3)	PESSOAS PRESAS	INDICIADO	OBSERVAÇÃO
+            01/11	VIOLÊNCIA DOMÉSTICA	0:45	RUA CARMINE PICONI, 179	NOVA ODESSA	1296	5738	NÃO	A	JÚLIO CESAR	IANARA		0	RAPHAEL RIBEIRO DOS SANTOS	LIBERADO
+            01/11	AMEAÇA	15:28	WILLIAM APARECIDO DA SILVA 	SUMARÉ	13829	QB1377	SIM	C	DEZEMBRO	LIBÓRIO		1	EDER APARECIDO RAMOS	PRESO
+            01/11	TRÁFICO DE DROGAS	19:39	RUA DA ESPERANÇA, 435	SUMARÉ	19025	QB2826	SIM	APOIO	MARTINS	ANDERSON		1	FELIPE MARTINS DIAS 	PRESO
+            02/11	VIOLÊNCIA DOMÉSTICA	20:21	RUA ONORINO FABRI, 518	SUMARÉ	20024	QC0397	SIM	C	PEDRO	FERNANDO		1	PAULO HENRIQUE NUDELMAN	PRESO
+            02/11	AMEAÇA / INJÚRIA	20:18	RUA PEDRO SNIKER, 52	NOVA ODESSA	19837	QB9698	NÃO	C	AZEVEDO	W. VIEIRA		0	LUCAS GABRIEL SOUTO DE FREITAS 	LIBERADO
+            03/11	CRIMES DE TRÂNSITO - ART 311	17:11	RUA JACINTO GAIOTI, 22	SUMARÉ	11866	QD5815	SIM	APOIO	MARTINS	ANDERSON		1	NEIDE SIMPLICIO MARIANO 	PRESO
+            03/11	TRÁFICO DE DROGAS	21:22	RUA DA SAÚDE, 1	SUMARÉ	15799	QD7979	SIM	APOIO	MARTINS	ANDERSON		1	LUCAS HENRIQUE FERNANDES 	PRESO
+            04/11	FURTO MEDIANTE FRAUDE/ ART 311	12:05	ESTRADA MUNICIPAL TEODOR CONDIEV, 1	SUMARÉ	7238	QE4890	SIM	D	ISMAEL	ANDRE	G.GOMES	2	BRENDON LUCAS DE SOUZA / GRACE CRISTINA DANTAS DE OLIVEIRA 	PRESO
+            04/11	TRÁFICO DE DROGAS	23:56	RUA COROA IMPERIAL, 1	SUMARÉ	18391	4470	SIM	A	EUCLIDES	SCHUMAHER		1	NATALIA PAES DO ESPIRITO SANTO	PRESO
+            05/11	AGRESSÃO	10:19	RUA ANTÔNIO DO VALE MELLO, 874	SUMARÉ	6273	8976	SIM	C	TORRES	SANA		1	FRANCIVALDO RODRIGUES DE JESUS	PRESO
+            05/11	PORTE ILEGAL DE MUNIÇÃO	22:13	RUA CRENAC, 464	SUMARÉ	17500	QH0367	SIM	APOIO	ANDERSON	MARTINS		1	LUIZ GUSTAVO ALBUQUERQUE DOS SANTOS	PRESO
+            06/11	TRÁFICO DE DROGAS	18:00	RUA DAS MARGARIDAS, 281	SUMARÉ	13187	QI3196	SIM	APOIO	EVERTON	VENTAVOLI		1	SAMIR SIMOES DE LIMA 	PRESO
+            07/11	TRÁFICO DE DROGAS	12:41	RUA ANTÔNIO JORGE CHEBAB, 1319	SUMARÉ	9881		SIM	APOIO	MARTINS	ANDERSON		1	PAULO DIEGO DOS SANTOS	PRESO
+            07/11	CRIMES DE TRÂNSITO - ART 311	16:15	RUA COROA IMPERIAL, 1	SUMARÉ	13609		SIM	A	VINCIGUERRA	CARRENHO		4	LUIS EDUARDO FERRARI MONTEIRO	PRESO
+            08/11	HOMICÍDIO TENTATIVA 	0:58	RUA NATAL, 386	NOVA ODESSA	1793		SIM	B	ALMADA	TIAGO SILVA		1	LUCAS ALEXANDRE DE OLIVEIRA	PRESO
+            08/11	VIOLÊNCIA DOMÉSTICA	9:55	AVENIDA SOMA, 43	SUMARÉ	9848		SIM	D	CALIXTO	PELEGRINO		1	CICERO ROGERIO DOMINGOS	PRESO
+            08/11	VIOLÊNCIA DOMÉSTICA	10:02	AVENIDA EUGÊNIA BIANCALANA DUARTE, 1377	SUMARÉ	9934	QK3599	SIM	D	H.VIEIRA	VIOTO		1	EVERSON APARECIDO ORLANDO DA SILVA	PRESO
+            08/11	TRÁFICO DE DROGAS	21:55	RUA DA SAÚDE, 1	SUMARÉ	23732		SIM	A	EUCLIDES	SCHUMAHER		1	JONAS JESUS SANTANA SANTOS	PRESO
+            09/11	TRÁFICO DE DROGAS	1:52	RUA MARIA BLUMER, 168	SUMARÉ	3689		SIM	A	F.MORAIS	SOARES		1	DOUGLAS LEANDRO DE FARIAS	PRESO
+            09/11	HOMICÍDIO TENTATIVA 	23:08	RUA DA PAZ, 36	SUMARÉ	28196		SIM	D	BARBOSA	CLAITON		1	THAIS CRISTINA LOPES DA SILVA OLIVEIRA	PRESO
+            10/11	RECEPTAÇÃO	22:30	RUA DOS ALECRINS, 100	SUMARÉ	17981		SIM	C	FERREIRA	MAICON	PEDRO	1	JAIR PENHACHEK	PRESO
+            11/10	LESÃO CORPORAL	1:22	RUA RIO CAPIVARI, 621	NOVA ODESSA	701	QN7392	NÃO	C	AZEVEDO	W. VIEIRA		0	VICTOR RAFAEL MARTINEZ CAETANO	LIBERADO
+            11/11	IMPORTUNAÇÃO OFENSIVA AO PUDOR	11:50	AVENIDA 7 DE SETEMBRO, 264	SUMARÉ	6052		SIM	A	F.MORAIS	SOARES		1	FRANCISCO DE PAULO PEDROSA	PRESO
+            11/11	TRÁFICO DE DROGAS	17:55	FRANCISCO DE PAULO PEDROSA	SUMARÉ	11544	QP2302	SIM	APOIO	ANDERSON	MARTINS		1	RENAN PEDRO SANTOS DA SILVA	PRESO
+            11/11	VIOLÊNCIA DOMÉSTICA	20:05	RUA TREZE DE MAIO, 581	NOVA ODESSA	13781	QP1455	SIM	B	WALDIR	PELEGRINO		1	MELICIO DE LIMA	PRESO
+            12/11	FURTO DE FIOS	2:26	PRAÇA NIPO BRASILEIRA - VILA VALLE, 1	SUMARÉ	1185	QP3445	SIM	B	BORGONHONI	JESUS		2	 CICERO BATISTA FURTADO / RENATO DE FARIA 	PRESO
+            12/11	TRÁFICO DE DROGAS	21:35	RUA DIVA FERREIRA DE SOUZA, 12	SUMARÉ	16584		SIM	A	EUCLIDES	SCHUMAHER		1	DANIEL SILVA DE OLIVEIRA	PRESO
+            13/11	VIOLÊNCIA DOMÉSTICA	2:30	RUA ZENAIDE PRADO BITTENCOURT CABRAL, 32	SUMARÉ	1273	QQ8108	SIM	A	MANIERI	DONATO		1	CAYQUE TAVARES FAUSTO	PRESO
+            13/11	TRÁFICO DE DROGAS	01:16	AVENIDA SOMA, 55	SUMARÉ	881	QQ6196	SIM	A	CARRENHO	VINCIGUERRA		1	JOSÉ ARNALDY ROQUE BALBINO DA SILVA	PRESO
+            13/11	TRÁFICO DE DROGAS	18:44	RUA DAS PALMEIRAS, 100	SUMARÉ	14290	QR9878	SIM	APOIO	ANDERSON	MARTINS		1	IARA PAULA SOUZA CASSIMIRO 	PRESO
+            14/11	FURTO RESIDÊNCIA	2:25	AVENIDA LUÍS FRUTUOSO, 102	SUMARÉ	1598	QS1185	SIM	D	CLAITON	TONETE		1	SILVIO CORDEIRO FARIAS	PRESO
+        `;
+
+        let allRecords = []; // Armazena todos os registros após o parse
+
+        // Função para inicializar o Firebase e autenticar (boilerplate obrigatório)
+        async function initializeFirebaseAndAuth() {
+            try {
+                if (Object.keys(firebaseConfig).length > 0) {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    setLogLevel('debug');
+
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser?.uid || crypto.randomUUID();
+                } else {
+                    // console.log("Firebase config not available. Proceeding without backend features.");
+                    userId = crypto.randomUUID();
+                }
+            } catch (error) {
+                console.error("Firebase/Auth initialization error:", error);
+                // Fallback: Proceed with dashboard functionality
+                userId = crypto.randomUUID();
+            }
+            // Após a autenticação/fallback, iniciar o dashboard
+            setupDashboard();
+        }
+
+        /**
+         * Parses the raw tab-separated string data into a structured array of objects.
+         * Combines up to 3 'POLICIAIS' columns into a single string.
+         */
+        function parseData(rawText) {
+            const lines = rawText.trim().split('\n').filter(line => line.trim() !== '');
+            if (lines.length < 2) return [];
+
+            // Define custom headers for easier property access
+            const headerMap = {
+                'DATA': 'data',
+                'NATUREZA': 'natureza',
+                'HORA': 'hora',
+                'LOCAL': 'local',
+                'CIDADE': 'cidade',
+                'BOPM': 'bopm',
+                'BOPC': 'bopc',
+                'FLAGRANTE': 'flagrante',
+                'EQUIPE': 'equipe',
+                'PESSOAS PRESAS': 'pessoasPresas',
+                'INDICIADO': 'indiciado',
+                'OBSERVAÇÃO': 'observacao'
+            };
+
+            const rawHeaders = lines[0].split('\t').map(h => h.trim());
+            const records = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split('\t').map(v => v.trim());
+                if (values.length < rawHeaders.length) continue; 
+
+                const record = {};
+                let policiais = [];
+
+                for (let j = 0; j < rawHeaders.length; j++) {
+                    const rawHeader = rawHeaders[j];
+                    const value = values[j];
+
+                    if (rawHeader.startsWith('POLICIAIS')) {
+                        // Collect all police names
+                        if (value) policiais.push(value);
+                    } else if (headerMap[rawHeader]) {
+                        record[headerMap[rawHeader]] = value;
+                    }
+                }
+                
+                // Add the combined policiais data
+                record.policiais = policiais.filter(p => p.length > 0).join(', ');
+                // Ensure 'pessoasPresas' is a number
+                record.pessoasPresas = parseInt(record.pessoasPresas) || 0;
+
+                records.push(record);
+            }
+            return records;
+        }
+
+        /**
+         * Extracts unique values for filter dropdowns.
+         */
+        function getUniqueValues(records, key) {
+            const values = new Set();
+            records.forEach(record => {
+                if (key === 'policiais') {
+                    // Special handling for policemen: split the combined string
+                    record.policiais.split(',').forEach(policial => {
+                        const trimmed = policial.trim();
+                        if (trimmed) values.add(trimmed);
+                    });
+                } else if (record[key]) {
+                    values.add(record[key].trim());
+                }
+            });
+            return Array.from(values).sort();
+        }
+
+        /**
+         * Populates a select element with options.
+         */
+        function populateFilter(selectId, options, allText) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = `<option value="">${allText}</option>`;
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                select.appendChild(opt);
+            });
+            select.addEventListener('change', updateDashboard);
+        }
+
+        /**
+         * Filters the records based on current select values.
+         */
+        function filterRecords() {
+            const natureza = document.getElementById('filter-natureza').value;
+            const equipe = document.getElementById('filter-equipe').value;
+            const policial = document.getElementById('filter-policial').value;
+            const cidade = document.getElementById('filter-cidade').value;
+
+            return allRecords.filter(record => {
+                let match = true;
+
+                if (natureza && record.natureza !== natureza) {
+                    match = false;
+                }
+                if (equipe && record.equipe !== equipe) {
+                    match = false;
+                }
+                // Check if any of the policemen in the record matches the selected one
+                if (policial && !record.policiais.includes(policial)) {
+                    match = false;
+                }
+                if (cidade && record.cidade !== cidade) {
+                    match = false;
+                }
+
+                return match;
+            });
+        }
+
+        /**
+         * Renders the summary cards with calculated statistics.
+         */
+        function renderSummaryCards(filteredRecords) {
+            const totalOcorrencias = filteredRecords.length;
+            const totalFlagrantes = filteredRecords.filter(r => r.flagrante === 'SIM').length;
+            const totalPessoasPresas = filteredRecords.reduce((sum, r) => sum + r.pessoasPresas, 0);
+            
+            // Calculate unique cities in the filtered set
+            const uniqueCities = new Set(filteredRecords.map(r => r.cidade));
+            const totalCidades = uniqueCities.size;
+
+            const cardsData = [
+                { title: "Total de Ocorrências", value: totalOcorrencias, color: "bg-indigo-500", icon: "clipboard-list" },
+                { title: "Total de Flagrantes", value: totalFlagrantes, color: "bg-green-500", icon: "handcuffs" },
+                { title: "Pessoas Detidas", value: totalPessoasPresas, color: "bg-red-500", icon: "user-tag" },
+                { title: "Cidades Atendidas", value: totalCidades, color: "bg-yellow-500", icon: "city" },
+            ];
+
+            const cardContainer = document.getElementById('summary-cards');
+            cardContainer.innerHTML = cardsData.map(card => `
+                <div class="summary-card ${card.color} text-white p-5 rounded-xl flex items-center justify-between transition duration-300 transform hover:scale-[1.02]">
+                    <div>
+                        <p class="text-sm font-medium opacity-80">${card.title}</p>
+                        <p class="text-3xl font-bold">${card.value}</p>
+                    </div>
+                    <svg class="w-8 h-8 opacity-75" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        ${getIconSvg(card.icon)}
+                    </svg>
+                </div>
+            `).join('');
+        }
+
+        // Simple SVG icon getter (using Lucide-like icons for visual appeal)
+        function getIconSvg(name) {
+            switch (name) {
+                case 'clipboard-list': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>';
+                case 'handcuffs': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-2-10V4a1 1 0 011-1h2a1 1 0 011 1v3m-2 7h2m-4 0h4m-4 0v-7a1 1 0 011-1h2a1 1 0 011 1v7m-4 0H9a2 2 0 00-2 2v4a2 2 0 002 2h6a2 2 0 002-2v-4a2 2 0 00-2-2h-1"/>';
+                case 'user-tag': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
+                case 'city': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-2M5 21h2m7-9h-2M9 19h12"/>';
+                default: return '';
+            }
+        }
+
+        /**
+         * Renders the filtered records into the main table.
+         */
+        function renderTable(filteredRecords) {
+            const tableBody = document.getElementById('results-table-body');
+            const resultCount = document.getElementById('result-count');
+            const noResults = document.getElementById('no-results');
+
+            resultCount.textContent = `${filteredRecords.length} Resultados`;
+            tableBody.innerHTML = ''; // Clear previous results
+
+            if (filteredRecords.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            } else {
+                noResults.classList.add('hidden');
+            }
+
+            filteredRecords.forEach((record, index) => {
+                const row = document.createElement('tr');
+                // Alternating row background color for readability
+                row.className = index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
+                
+                // Determine color for the 'Flagrante' column
+                const flagranteClass = record.flagrante === 'SIM' ? 'text-green-600 font-semibold' : 'text-red-500';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">${record.data}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.natureza}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.cidade}</td>
+                    <td class="px-6 py-4 text-sm ${flagranteClass}">${record.flagrante}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.equipe}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.policiais}</td>
+                    <td class="px-6 py-4 text-sm text-center text-gray-700">${record.pessoasPresas}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.indiciado}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${record.observacao}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        /**
+         * Main function to update the dashboard based on filters.
+         */
+        function updateDashboard() {
+            const filtered = filterRecords();
+            renderSummaryCards(filtered);
+            renderTable(filtered);
+        }
+
+        /**
+         * Initializes the dashboard: parses data, populates filters, and renders initial state.
+         */
+        function setupDashboard() {
+            allRecords = parseData(rawDataInput);
+            
+            // 1. Populate Filter Dropdowns
+            const uniqueNaturezas = getUniqueValues(allRecords, 'natureza');
+            const uniqueEquipes = getUniqueValues(allRecords, 'equipe');
+            const uniquePoliciais = getUniqueValues(allRecords, 'policiais');
+            const uniqueCidades = getUniqueValues(allRecords, 'cidade');
+
+            populateFilter('filter-natureza', uniqueNaturezas, 'Todas as Naturezas');
+            populateFilter('filter-equipe', uniqueEquipes, 'Todas as Equipes');
+            populateFilter('filter-policial', uniquePoliciais, 'Todos os Policiais');
+            populateFilter('filter-cidade', uniqueCidades, 'Todas as Cidades');
+            
+            // 2. Add Reset Button Listener
+            document.getElementById('reset-filters').addEventListener('click', () => {
+                document.getElementById('filter-natureza').value = "";
+                document.getElementById('filter-equipe').value = "";
+                document.getElementById('filter-policial').value = "";
+                document.getElementById('filter-cidade').value = "";
+                updateDashboard();
+            });
+
+            // 3. Initial Render
+            updateDashboard();
+            
+            // Hide loading and show app
+            document.getElementById('loading-overlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('app-container').style.opacity = '1';
+            }, 300);
+        }
+
+        // Start initialization
+        initializeFirebaseAndAuth();
+
+    </script>
+</body>
+</html>
