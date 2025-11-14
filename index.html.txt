@@ -132,7 +132,7 @@
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Importações e inicialização Firebase (boilerplate obrigatório)
+        // Importações e inicialização Firebase (Obrigatório, mesmo que não seja usado para persistência de dados nesta demo)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -141,7 +141,7 @@
         let auth = null;
         let userId = null;
 
-        // Dados brutos da planilha do usuário (COLADOS AQUI)
+        // Dados brutos da planilha do usuário
         const rawDataInput = `
             DATA	NATUREZA	HORA	LOCAL	CIDADE	BOPM	BOPC	FLAGRANTE	EQUIPE	POLICIAIS (1)	POLICIAIS (2)	POLICIAIS (3)	PESSOAS PRESAS	INDICIADO	OBSERVAÇÃO
             01/11	VIOLÊNCIA DOMÉSTICA	0:45	RUA CARMINE PICONI, 179	NOVA ODESSA	1296	5738	NÃO	A	JÚLIO CESAR	IANARA		0	RAPHAEL RIBEIRO DOS SANTOS	LIBERADO
@@ -179,7 +179,7 @@
 
         let allRecords = []; // Armazena todos os registros após o parse
 
-        // Função para inicializar o Firebase e autenticar (boilerplate obrigatório, mesmo não sendo usado para persistência de dados)
+        // Função para inicializar o Firebase e autenticar (boilerplate obrigatório)
         async function initializeFirebaseAndAuth() {
             try {
                 if (Object.keys(firebaseConfig).length > 0) {
@@ -209,6 +209,7 @@
 
         /**
          * Parses the raw tab-separated string data into a structured array of objects.
+         * Combines up to 3 'POLICIAIS' columns into a single string.
          */
         function parseData(rawText) {
             const lines = rawText.trim().split('\n').filter(line => line.trim() !== '');
@@ -239,7 +240,6 @@
 
                 const record = {};
                 let policiais = [];
-                let policiaiIndex = 0; // Tracks which POLICIAIS column we are on
 
                 for (let j = 0; j < rawHeaders.length; j++) {
                     const rawHeader = rawHeaders[j];
@@ -248,7 +248,6 @@
                     if (rawHeader.startsWith('POLICIAIS')) {
                         // Collect all police names
                         if (value) policiais.push(value);
-                        policiaiIndex++;
                     } else if (headerMap[rawHeader]) {
                         record[headerMap[rawHeader]] = value;
                     }
@@ -354,7 +353,6 @@
                         <p class="text-sm font-medium opacity-80">${card.title}</p>
                         <p class="text-3xl font-bold">${card.value}</p>
                     </div>
-                    <!-- Icone SVG de ${card.icon} -->
                     <svg class="w-8 h-8 opacity-75" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         ${getIconSvg(card.icon)}
                     </svg>
@@ -364,27 +362,25 @@
 
         // Simple SVG icon getter (using Lucide-like icons for visual appeal)
         function getIconSvg(name) {
-            // Este bloco usa paths SVG para representar ícones de forma limpa, sem bibliotecas externas (além do Tailwind)
             switch (name) {
                 case 'clipboard-list': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>';
                 case 'handcuffs': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-2-10V4a1 1 0 011-1h2a1 1 0 011 1v3m-2 7h2m-4 0h4m-4 0v-7a1 1 0 011-1h2a1 1 0 011 1v7m-4 0H9a2 2 0 00-2 2v4a2 2 0 002 2h6a2 2 0 002-2v-4a2 2 0 00-2-2h-1"/>';
                 case 'user-tag': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>';
-                case 'city': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16m-2-2h4m-4 0v2m4-16h2m-2 2v2m-6-16v16m0-4h4m-4 0v2m2-14h2m-2 2v2"/>';
-                default: return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+                case 'city': return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-2M5 21h2m7-9h-2M9 19h12"/>';
+                default: return '';
             }
         }
 
-
         /**
-         * Renders the main table with the filtered records.
+         * Renders the filtered records into the main table.
          */
         function renderTable(filteredRecords) {
-            const tbody = document.getElementById('results-table-body');
-            const noResults = document.getElementById('no-results');
+            const tableBody = document.getElementById('results-table-body');
             const resultCount = document.getElementById('result-count');
+            const noResults = document.getElementById('no-results');
 
-            tbody.innerHTML = '';
-            resultCount.textContent = `${filteredRecords.length} Casos`;
+            resultCount.textContent = `${filteredRecords.length} Resultados`;
+            tableBody.innerHTML = ''; // Clear previous results
 
             if (filteredRecords.length === 0) {
                 noResults.classList.remove('hidden');
@@ -393,29 +389,26 @@
                 noResults.classList.add('hidden');
             }
 
-            filteredRecords.forEach(record => {
-                const isFlagrante = record.flagrante === 'SIM';
-                const rowClass = isFlagrante ? 'bg-green-50/50 hover:bg-green-100' : 'hover:bg-gray-50';
-
+            filteredRecords.forEach((record, index) => {
                 const row = document.createElement('tr');
-                row.className = rowClass;
-
+                // Alternating row background color for readability
+                row.className = index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
+                
+                // Determine color for the 'Flagrante' column
+                const flagranteClass = record.flagrante === 'SIM' ? 'text-green-600 font-semibold' : 'text-red-500';
+                
                 row.innerHTML = `
-                    <td class="px-6 py-3 text-sm font-medium text-gray-900">${record.data}</td>
-                    <td class="px-6 py-3 text-sm text-gray-500 font-semibold">${record.natureza}</td>
-                    <td class="px-6 py-3 text-sm text-gray-500">${record.cidade}</td>
-                    <td class="px-6 py-3 text-sm">
-                        <span class="px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${isFlagrante ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                            ${record.flagrante}
-                        </span>
-                    </td>
-                    <td class="px-6 py-3 text-sm text-gray-500">${record.equipe}</td>
-                    <td class="px-6 py-3 text-sm text-gray-500">${record.policiais || 'N/A'}</td>
-                    <td class="px-6 py-3 text-sm font-bold text-gray-700">${record.pessoasPresas}</td>
-                    <td class="px-6 py-3 text-sm text-gray-500">${record.indiciado || 'N/A'}</td>
-                    <td class="px-6 py-3 text-sm text-gray-400 max-w-xs truncate">${record.observacao || 'Sem observação.'}</td>
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">${record.data}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.natureza}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.cidade}</td>
+                    <td class="px-6 py-4 text-sm ${flagranteClass}">${record.flagrante}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.equipe}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.policiais}</td>
+                    <td class="px-6 py-4 text-sm text-center text-gray-700">${record.pessoasPresas}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${record.indiciado}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${record.observacao}</td>
                 `;
-                tbody.appendChild(row);
+                tableBody.appendChild(row);
             });
         }
 
@@ -427,27 +420,25 @@
             renderSummaryCards(filtered);
             renderTable(filtered);
         }
-        
+
         /**
-         * Sets up initial state and event listeners.
+         * Initializes the dashboard: parses data, populates filters, and renders initial state.
          */
         function setupDashboard() {
-            // 1. Parse Data
             allRecords = parseData(rawDataInput);
-
-            // 2. Extract Unique Values
-            const naturezas = getUniqueValues(allRecords, 'natureza');
-            const equipes = getUniqueValues(allRecords, 'equipe');
-            const policiais = getUniqueValues(allRecords, 'policiais');
-            const cidades = getUniqueValues(allRecords, 'cidade');
-
-            // 3. Populate Filters
-            populateFilter('filter-natureza', naturezas, 'Todas as Naturezas');
-            populateFilter('filter-equipe', equipes, 'Todas as Equipes');
-            populateFilter('filter-policial', policiais, 'Todos os Policiais');
-            populateFilter('filter-cidade', cidades, 'Todas as Cidades');
             
-            // 4. Set Reset Button Listener
+            // 1. Populate Filter Dropdowns
+            const uniqueNaturezas = getUniqueValues(allRecords, 'natureza');
+            const uniqueEquipes = getUniqueValues(allRecords, 'equipe');
+            const uniquePoliciais = getUniqueValues(allRecords, 'policiais');
+            const uniqueCidades = getUniqueValues(allRecords, 'cidade');
+
+            populateFilter('filter-natureza', uniqueNaturezas, 'Todas as Naturezas');
+            populateFilter('filter-equipe', uniqueEquipes, 'Todas as Equipes');
+            populateFilter('filter-policial', uniquePoliciais, 'Todos os Policiais');
+            populateFilter('filter-cidade', uniqueCidades, 'Todas as Cidades');
+            
+            // 2. Add Reset Button Listener
             document.getElementById('reset-filters').addEventListener('click', () => {
                 document.getElementById('filter-natureza').value = "";
                 document.getElementById('filter-equipe').value = "";
@@ -456,19 +447,19 @@
                 updateDashboard();
             });
 
-            // 5. Initial Render
+            // 3. Initial Render
             updateDashboard();
-
-            // 6. Hide loading overlay and show app
-            document.getElementById('loading-overlay').classList.add('opacity-0', 'pointer-events-none');
+            
+            // Hide loading and show app
+            document.getElementById('loading-overlay').style.opacity = '0';
             setTimeout(() => {
-                 document.getElementById('loading-overlay').classList.add('hidden');
-                 document.getElementById('app-container').classList.add('opacity-100');
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('app-container').style.opacity = '1';
             }, 300);
         }
 
-        // Start the process
-        document.addEventListener('DOMContentLoaded', initializeFirebaseAndAuth);
+        // Start initialization
+        initializeFirebaseAndAuth();
 
     </script>
 </body>
